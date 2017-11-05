@@ -13,10 +13,14 @@
 
 ;---------------------------------------------INICIO INTERFAZ LOGIN--------------------
 ;definicion de la ventana
-(define frame (new frame%  [label "Sharing Food"]
+(define frame (new frame%  [label "SHARING FOOD"]
                    [width 300][height 500]
                    [x 500][y 100])
   )
+
+;variables globales
+(define est_registro 1)
+(define vId -1)
 
 ;definicion de elementos graficos junto con su comportamiento
 (new message% [parent frame]                           
@@ -25,11 +29,11 @@
 
 (define titulo (new message% [parent frame]                           
      [min-height 75]
-     [label "Sharing Food"])
+     [label "SHARING FOOD"])
   )
 
 (define nombreUsuario (new text-field% [parent frame]
-     [label "Nombre:"])
+     [label "NOMBRE:"])
   )
 
 (new message% [parent frame]                           
@@ -37,7 +41,7 @@
      [label ""])
 
 (define clave (new text-field% [parent frame]
-     [label "     Clave:"])
+     [label "     CLAVE:"])
 )
 
 (new message% [parent frame]                           
@@ -45,7 +49,7 @@
      [label ""])
 
 (define botonIngreso (new button%
-                   [label "Ingresar"]                           
+                   [label "INGRESAR"]                           
                    [min-width 200]
                    [parent frame]
                    [callback (lambda (boton event)
@@ -55,13 +59,25 @@
   )
 
 (define botonRegistro (new button%
-                   [label "Registrarme"]                           
+                   [label "REGISTRARME"]  
                    [min-width 200]
                    [parent frame]
                    [callback (lambda (boton event)
-                               (send registro show #t)
+                               (set! vId -1)
+                               (send txtNombre set-value "")
+                               (send txtClave set-value "")
+                               (send txtTelefono set-value "")
+                               (send txtPaginaWeb set-value "")
+                               (send txtDireccion set-value "")
+                               (habilitarInsertar)
+                               (send frame show #f)
                                )]
              )
+  )
+
+(define (habilitarInsertar)
+  (set! est_registro 1)
+  (send registro show #t)
   )
 
 ;Despliegue de ventana
@@ -69,25 +85,26 @@
 
 ;Consulta que retorna 1 si existe una empresa con el nombre y la clave ingresada, retorna 0 de lo contrario
 (define (iniciarSesion nombre clave)
-  (gestionLoggeo (query-value conexion (string-append "SELECT COUNT(*) FROM EMPRESA WHERE Emp_Nombre='" nombre "' AND Emp_Password = '" clave "'")))    
-  )
-
-;Método de prueba (BORRAR LUEGO)-------------------------------------------
-(define (mensaje x)
-  (write x)
+  (gestionLoggeo (query-value conexion (string-append "SELECT Emp_Id FROM EMPRESA WHERE Emp_Nombre = '" nombre "' AND Emp_Password = '" clave "'")))    
   )
 
 (define (gestionLoggeo resultado)
-  (if (= resultado 1)
-      (send opciones show #t)
-      (mensaje "Falló ingreso")
+  (if (null? resultado)
+      (write "FALLÓ EL INGRESO")      
+      (habilitarOpciones resultado)  
       )
   )
 
-;---------------------------------------------FIN INTERFAZ LOGIN--------------------
+(define (habilitarOpciones id)
+  (set! vId id)
+      (send frame show #f)
+      (send opciones show #t)
+  )
+
+;---------------------------------------------FIN INTERFAZ LOGIN--------------------------
 
 ;---------------------------------------------INICIO INTERFAZ OPCIONES--------------------
-(define opciones (new frame%  [label "Sharing Food"]
+(define opciones (new frame%  [label "SHARING FOOD"]
                    [width 300][height 500]
                    [x 500][y 100])
   )
@@ -99,11 +116,11 @@
 
 (define lblOpciones (new message% [parent opciones]                           
      [min-height 75]
-     [label "Opciones"])
+     [label "OPCIONES"])
   )
 
 (define btnAgregarPublicacion (new button%
-                   [label "Nueva Publicacion"]                           
+                   [label "NUEVA PUBLICACION"] 
                    [min-width 200]
                    [parent opciones]
                    [callback (lambda (boton event)
@@ -113,7 +130,7 @@
   )
 
 (define btnMisPublicaciones (new button%
-                   [label "Mis Publicaciones"]                           
+                   [label "MIS PUBLICACIONES"]   
                    [min-width 200]
                    [parent opciones]
                    [callback (lambda (boton event)
@@ -123,24 +140,60 @@
   )
 
 (define btnAjusteDeDatos (new button%
-                   [label "Ajuste de datos"]                           
+                   [label "AJUSTE DE DATOS"]  
                    [min-width 200]
                    [parent opciones]
+                   [callback (lambda (boton event)
+                               ;ajsutar valores de variables globales
+                               ;(set! vNombre (query-value conexion (string-append "SELECT Emp_Nombre FROM EMPRESA WHERE Emp_Id = " vId )))                               
+                                   (habilitarAjusteDatos)
+                               )]
              )
   )
 
 (define btnInformes (new button%
-                   [label "Informes"]  
+                   [label "INFORMES"]  
                    [min-width 200]
                    [parent opciones]
              )
   )
 
+(new message% [parent opciones]                           
+     [min-height 60]
+     [label ""]
+ )
+
+(define btnCerrarSesion (new button%
+                   [label "CERRAR SESIÓN"]  
+                   [min-width 200]
+                   [parent opciones]
+                   [callback (lambda (boton event)
+                               (send opciones show #f)
+                               (send frame show #t)
+                               )]
+             )
+  )
+
+
+;extraer valores de la base de datos y insertarlos en las cajas de texto
+(define (habilitarAjusteDatos)
+  (send txtNombre set-value (query-value conexion (string-append "SELECT Emp_Nombre FROM EMPRESA WHERE Emp_Id = " (number->string vId))))
+  (send txtClave set-value (query-value conexion (string-append "SELECT Emp_Password FROM EMPRESA WHERE Emp_Id = " (number->string vId))))
+  (send txtTelefono set-value (query-value conexion (string-append "SELECT Emp_Telefono FROM EMPRESA WHERE Emp_Id = " (number->string vId))))
+  (send txtPaginaWeb set-value (query-value conexion (string-append "SELECT Emp_PaginaWeb FROM EMPRESA WHERE Emp_Id = " (number->string vId))))
+  (send txtDireccion set-value (query-value conexion (string-append "SELECT Emp_Direccion FROM EMPRESA WHERE Emp_Id = " (number->string vId))))
+  (set! est_registro 0)
+  (send opciones show #f)  
+  (send registro show #t)  
+  )
+
+
+
 ;---------------------------------------------FIN INTERFAZ OPCIONES--------------------
 
-;---------------------------------------------INICIO INTERFAZ REGISTRO---------------------------
+;---------------------------------------------INICIO INTERFAZ REGISTRO-----------------
 (define registro (new frame%
-                   [label "Sharing Food"]
+                   [label "SHARING FOOD"]
                    [width 400][height 600]                   
                    [x 500][y 100])
   )
@@ -152,7 +205,7 @@
 
 (define lblRegistro (new message% [parent registro]
                         [min-height 45]
-                        [label "Registro"])
+                        [label "REGISTRO"])
   )
 
 (new message% [parent registro]     
@@ -161,19 +214,27 @@
      )
 
 (define txtNombre (new text-field% [parent registro]
-     [label "     Nombre: "])
+     [label "       NOMBRE: "]
+     )
   )
 
 (define txtClave (new text-field% [parent registro]
-     [label "          Clave: "])
-  )
+     [label "            CLAVE: "]
+     )
+  )  
+
+(define txtTelefono (new text-field% [parent registro]
+     [label "    TELEFONO: "]
+     )
+  )  
 
 (define txtPaginaWeb (new text-field% [parent registro]
-     [label "Pagina Web: "])
+     [label "PAGINA WEB: "])
   )
 
 (define txtDireccion (new text-field% [parent registro]
-     [label "     Direccion: "])
+     [label "   DIRECCION: "]
+     )
   )
 
 (new message% [parent registro]  
@@ -184,14 +245,32 @@
 
 
 (define btnRegistrar (new button%
-                   [label "Registrar"]
+                   [label "GUARDAR"]
                    [min-width 200]
-                   [parent registro]                   
+                   [parent registro]
+                   [callback (lambda (boton event)
+                               (gestionDatosEmpresa (send txtNombre get-value) (send txtClave get-value) (send txtTelefono get-value) (send txtPaginaWeb get-value) (send txtDireccion get-value))
+                               )]
              )
   )
-;--------------------------------------------FIN INTERFAZ REGISTRO----------------------------------------------
+(define btnRegresarDeRegistro (new button%
+                   [label "REGRESAR"]
+                   [min-width 200]
+                   [parent registro]
+                   [callback (lambda (boton event)
+                               (
+                                (send registro show #f)
+                                (if (= est_registro 1)                                    
+                                    (send frame show #t)
+                                    (send opciones show #t)
+                                    )
+                                )
+                               )]
+             )
+  )
+;--------------------------------------------FIN INTERFAZ REGISTRO--------------------------
 
-;---------------------------------------------INICIO INTERFAZ PUBLICACION-------------------
+;--------------------------------------------INICIO INTERFAZ PUBLICACION--------------------
 (define publicacion (new frame%
                    [label "Sharing Food"]
                    [width 400][height 600]                   
@@ -205,7 +284,7 @@
 
 (define lblPublicacion (new message% [parent publicacion]
                         [min-height 45]
-                        [label "Publicación"])
+                        [label "PUBLICACION"])
   )
 
 (new message% [parent publicacion]  
@@ -233,16 +312,16 @@
      )
 
 (define btnPublicar (new button%
-                   [label "Publicar"]
+                   [label "PUBLICAR"]
                    [min-width 200]
                    [parent publicacion]                   
              )
   )
 ;---------------------------------------------FIN INTERFAZ PUBLICACION-------------------
 
-;---------------------------------------------INICIO INTERFAZ PUBLICACIONES-------------------
+;---------------------------------------------INICIO INTERFAZ PUBLICACIONES--------------
 (define publicaciones (new frame%
-                   [label "Sharing Food"]
+                   [label "SHARING FOOD"]
                    [width 400][height 600]                   
                    [x 500][y 100])
   )
@@ -254,12 +333,12 @@
 
 (define lbltitulo (new message% [parent publicaciones]     
      [min-height 45]
-     [label "Restaurante Patojito"])
+     [label "RESTAURANTE PATOJITO"])
   )
 
 (new message% [parent publicaciones]     
      [min-height 30]
-     [label "Publicaciones"]
+     [label "PUBLICACIONES"]
      )
 
 (new message% [parent publicaciones]                    
@@ -283,7 +362,7 @@
 
 
 (define decrementarUnidades (new button%
-                   [label "consumir plato"]                           
+                   [label "CONSUMIR PLATO"]                           
                    [min-width 100]
                    [parent publicaciones]                   
              )
@@ -295,14 +374,14 @@
      )
 
 (define botonAnterior (new button%
-                   [label "< Anterior"]                           
+                   [label "< ANTERIOR"]                           
                    [min-width 100]
                    [parent publicaciones]                   
              )
   )
 
 (define botonSiguiente (new button%
-                   [label "Siguiente >"]                           
+                   [label "SIGUIENTE >"]                           
                    [min-width 100]
                    [parent publicaciones]             
              )
@@ -311,4 +390,25 @@
 
 ;---------------------------------------------INICIO INTERFAZ INFORMES---------------------
 
+
+
 ;---------------------------------------------FIN INTERFAZ INFORMES------------------------
+
+
+;---------------------------------------------INICIO GESTION BASE DE DATOS------------------------
+(define (gestionDatosEmpresa nombre clave telefono paginaWeb direccion)
+  (if (= est_registro 1)
+      (ingreso nombre clave telefono paginaWeb direccion)
+      (query-exec conexion (string-append "UPDATE Empresa SET Emp_Nombre = '" nombre "', Emp_Password = '" clave "', Emp_Telefono = '" telefono "', Emp_PaginaWeb = '" paginaWeb "', Emp_Direccion = '" direccion "' WHERE Emp_Id = " (number->string vId)))
+      )
+  )
+
+(define (ingreso nombre clave telefono paginaWeb direccion)
+  (query-exec conexion (string-append "INSERT INTO Empresa (Emp_Nombre, Emp_Password, Emp_Telefono, Emp_PaginaWeb, Emp_Direccion) VALUES ('" nombre "','" clave "','" telefono "','" paginaWeb "','" direccion "')"))
+   (if (null? (query-rows conexion (string-append "SELECT * FROM Empresa WHERE Emp_Nombre = '" nombre "'")))       
+       (write "Registro Fallido")
+       (write "Registro Exitoso")
+       )
+  )
+
+;---------------------------------------------FIN GESTION BASE DE DATOS----------------------------
