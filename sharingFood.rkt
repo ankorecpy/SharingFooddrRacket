@@ -21,6 +21,9 @@
 ;variables globales
 (define est_registro 1)
 (define vId -1)
+(define vIdPublicacion -1)
+(define vNumPlatos -1)
+(define vAuxiliar -1)
 
 ;definicion de elementos graficos junto con su comportamiento
 (new message% [parent frame]                           
@@ -45,7 +48,14 @@
 )
 
 (new message% [parent frame]                           
-     [min-height 60]
+     [min-height 30]
+     [label ""])
+
+(define mensajeIngreso (new message% [parent frame]                           
+     [label ""]))
+
+(new message% [parent frame]                           
+     [min-height 30]
      [label ""])
 
 (define botonIngreso (new button%
@@ -84,13 +94,13 @@
 (send frame show #t)
 
 ;Consulta que retorna 1 si existe una empresa con el nombre y la clave ingresada, retorna 0 de lo contrario
-(define (iniciarSesion nombre clave)
-  (gestionLoggeo (query-value conexion (string-append "SELECT Emp_Id FROM EMPRESA WHERE Emp_Nombre = '" nombre "' AND Emp_Password = '" clave "'")))    
+(define (iniciarSesion nombre clave)  
+  (gestionLoggeo (query-value conexion (string-append "SELECT IFNULL(Emp_Id, -1) FROM EMPRESA WHERE Emp_Nombre = '" nombre "' AND Emp_Password = '" clave "'")))    
   )
 
 (define (gestionLoggeo resultado)
-  (if (null? resultado)
-      (write "FALLÓ EL INGRESO")      
+  (if (= resultado -1)
+      (send mensajeIngreso set-value "Datos de ingreso incorrectos. Intente de nuevo")
       (habilitarOpciones resultado)  
       )
   )
@@ -125,6 +135,7 @@
                    [parent opciones]
                    [callback (lambda (boton event)
                                (send publicacion show #t)
+                               (send opciones show #f)
                                )]
              )  
   )
@@ -134,7 +145,10 @@
                    [min-width 200]
                    [parent opciones]
                    [callback (lambda (boton event)
+                               (set! vIdPublicacion (query-value conexion (string-append "SELECT IFNULL(MAX(pub_Id),-1) FROM Publicacion WHERE Emp_Id = " (number->string vId) " AND pub_UnidadesConsumidas < pub_UnidadesOfertadas")))
+                               (cargarDatosPublicacion)
                                (send publicaciones show #t)
+                               (send opciones show #f)
                                )]
              )
   )
@@ -144,8 +158,6 @@
                    [min-width 200]
                    [parent opciones]
                    [callback (lambda (boton event)
-                               ;ajsutar valores de variables globales
-                               ;(set! vNombre (query-value conexion (string-append "SELECT Emp_Nombre FROM EMPRESA WHERE Emp_Id = " vId )))                               
                                    (habilitarAjusteDatos)
                                )]
              )
@@ -169,6 +181,8 @@
                    [parent opciones]
                    [callback (lambda (boton event)
                                (send opciones show #f)
+                               (send nombreUsuario set-value "")
+                               (send clave set-value "")
                                (send frame show #t)
                                )]
              )
@@ -258,7 +272,11 @@
                    [min-width 200]
                    [parent registro]
                    [callback (lambda (boton event)
-                               (
+                               ((send txtNombre set-value "")
+                                (send txtClave set-value "")
+                                (send txtTelefono set-value "")
+                                (send txtPaginaWeb set-value "")
+                                (send txtDireccion set-value "")
                                 (send registro show #f)
                                 (if (= est_registro 1)                                    
                                     (send frame show #t)
@@ -293,15 +311,19 @@
      )
 
 (define txtPlato (new text-field% [parent publicacion]
-     [label "      PLATO: "])
+     [label "                 PLATO: "])
   )
 
 (define txtPrecio (new text-field% [parent publicacion]
-     [label "     PRECIO: "])
+     [label " PRECIO OFERTA: "])
+  )
+
+(define txtPrecioProduccion (new text-field% [parent publicacion]
+     [label "PRECIO PRODUC: "])
   )
 
 (define txtUnidades (new text-field% [parent publicacion]
-     [label "UNIDADES: "])
+     [label "            UNIDADES: "])
   )
 
 
@@ -314,7 +336,26 @@
 (define btnPublicar (new button%
                    [label "PUBLICAR"]
                    [min-width 200]
-                   [parent publicacion]                   
+                   [parent publicacion]
+                   [callback (lambda (boton event)
+                               (ingresoPublicacion (send txtPlato get-value) (send txtPrecio get-value) (send txtPrecioProduccion get-value) (send txtUnidades get-value))
+                               (send opciones show #t)
+                               (send publicacion show #f)
+                               )]
+             )
+  )
+
+(define btnRegresarDePublicacion (new button%
+                   [label " REGRESAR "]
+                   [min-width 200]
+                   [parent publicacion]
+                   [callback (lambda (boton event)
+                               (send txtPlato set-value "")
+                               (send txtPrecio set-value "")
+                               (send txtUnidades set-value "")
+                               (send opciones show #t)
+                               (send publicacion show #f)
+                               )]
              )
   )
 ;---------------------------------------------FIN INTERFAZ PUBLICACION-------------------
@@ -333,7 +374,7 @@
 
 (define lbltitulo (new message% [parent publicaciones]     
      [min-height 45]
-     [label "RESTAURANTE PATOJITO"])
+     [label ""])
   )
 
 (new message% [parent publicaciones]     
@@ -346,26 +387,42 @@
      [label ""]
      )
 
-(define nombrePlato (new message% [parent publicaciones]  
-     [min-height 25]
-     [label "PLATO:      Churrasco punta de anca"])
+(define nombrePlato (new text-field% [parent publicaciones]  
+     [label "                PLATO:"]
+     [enabled #f])     
   )
 
-(define precioPlato (new message% [parent publicaciones]                    
-     [min-height 25]
-     [label "PRECIO:      $17000                                  "])
+(define precioPlato (new text-field% [parent publicaciones]                    
+     [label "PRECIO OFERTA:"]     
+     [enabled #f])
   )
-(define unidadesPlato (new message% [parent publicaciones]                           
-     [min-height 25]
-     [label "UNIDADES:      14                                               "])
+(define precioPlatoProd (new text-field% [parent publicaciones]                    
+     [label "    PRECIO PROD:"]     
+     [enabled #f])
+  )
+(define unidadesPlato (new text-field% [parent publicaciones]
+     [label "          UNIDADES:"]     
+     [enabled #f])
   )
 
 
 (define decrementarUnidades (new button%
                    [label "CONSUMIR PLATO"]                           
                    [min-width 100]
-                   [parent publicaciones]                   
+                   [parent publicaciones]
+                   [callback (lambda (boton event)
+                               (if (> vNumPlatos 0)
+                                   (decrementarValorPlatos 1)
+                                   (write " NO decrementado")
+                                )
+                               )]
              )
+  )
+
+(define (decrementarValorPlatos decremento)
+     (set! vNumPlatos (- vNumPlatos decremento))
+     (send unidadesPlato set-value (number->string vNumPlatos))
+     (query-exec conexion (string-append "Update publicacion set Pub_UnidadesConsumidas = (Pub_UnidadesConsumidas + " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion)))
   )
 
 (new message% [parent publicaciones]                           
@@ -376,7 +433,10 @@
 (define botonAnterior (new button%
                    [label "< ANTERIOR"]                           
                    [min-width 100]
-                   [parent publicaciones]                   
+                   [parent publicaciones]
+                   [callback (lambda (boton event)
+                              (cargarOtraPublicacion "<" "MAX")
+                              )]                             
              )
   )
 
@@ -384,6 +444,20 @@
                    [label "SIGUIENTE >"]                           
                    [min-width 100]
                    [parent publicaciones]             
+                   [callback (lambda (boton event)
+                              (cargarOtraPublicacion ">" "MIN")
+                              )]                             
+             )
+  )
+
+(define botonRegresarDePublicaciones (new button%
+                   [label " REGRESAR "]                           
+                   [min-width 100]
+                   [parent publicaciones]
+                   [callback (lambda (boton event)
+                               (send opciones show #t)
+                               (send publicaciones show #f)
+                               )]                             
              )
   )
 ;---------------------------------------------FIN INTERFAZ PUBLICACIONES-------------------
@@ -411,4 +485,30 @@
        )
   )
 
+(define (ingresoPublicacion plato precioOferta precioProduccion unidades)
+  (query-exec conexion (string-append "INSERT INTO Publicacion (Pub_Plato, Pub_PrecioOferta, Pub_PrecioProduccion, Pub_UnidadesOfertadas, Emp_Id) VALUES ('" plato "'," precioOferta "," precioProduccion "," unidades"," (number->string vId)")"))
+   (if (null? (query-rows conexion (string-append "SELECT * FROM Empresa WHERE Emp_Nombre = '" plato "'")))       
+       (write "Registro Fallido")
+       (write "Registro Exitoso")
+       )
+  )
+
+(define (cargarDatosPublicacion)  
+  (cond
+    ((= vIdPublicacion -1) (write "no hay publicaciones para mostrar"))
+    (else (send nombrePlato set-value (query-value conexion (string-append "SELECT pub_Plato FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
+       (send precioPlato set-value (number->string (query-value conexion (string-append "SELECT pub_PrecioOferta FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion)))))
+       (send precioPlatoProd set-value (number->string (query-value conexion (string-append "SELECT pub_PrecioProduccion FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion)))))
+       (set! vNumPlatos (query-value conexion (string-append "SELECT pub_UnidadesOfertadas FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
+       (send unidadesPlato set-value (number->string vNumPlatos)))                           
+  )
+)
+
+(define (cargarOtraPublicacion operando rango)
+  (set! vAuxiliar (query-value conexion (string-append "SELECT IFNULL(" rango "(pub_Id),-1) FROM Publicacion WHERE pub_Id " operando " " (number->string vIdPublicacion)  " AND Emp_Id = " (number->string vId) " AND pub_UnidadesConsumidas < pub_UnidadesOfertadas")))
+  (cond
+    ((= vAuxiliar -1) (write "No e pueden mostrar mas publicaciones"))
+    (else (set! vIdPublicacion vAuxiliar) (cargarDatosPublicacion))
+   )
+)
 ;---------------------------------------------FIN GESTION BASE DE DATOS----------------------------
