@@ -24,6 +24,11 @@
 (define vIdPublicacion -1)
 (define vNumPlatos -1)
 (define vAuxiliar -1)
+(define menosVen 0);variables de informe
+(define vNumPlatosVen -1)
+(define vCostoP -1)
+(define vTotalV -1)
+(define max -1)
 
 ;definicion de elementos graficos junto con su comportamiento
 (new message% [parent frame]                           
@@ -167,6 +172,12 @@
                    [label "INFORMES"]  
                    [min-width 200]
                    [parent opciones]
+                   [callback (lambda (boton event)                             
+                               (set! vIdPublicacion (query-value conexion (string-append "SELECT IFNULL(MAX(pub_Id),-1) FROM Publicacion WHERE Emp_Id = " (number->string vId) " AND pub_UnidadesConsumidas < pub_UnidadesOfertadas")))
+                               (cargarDatosInformes)
+                               (send informes show #t)
+                               (send opciones show #f)
+                               )]
              )
   )
 
@@ -187,7 +198,6 @@
                                )]
              )
   )
-
 
 ;extraer valores de la base de datos y insertarlos en las cajas de texto
 (define (habilitarAjusteDatos)
@@ -272,7 +282,7 @@
                    [min-width 200]
                    [parent registro]
                    [callback (lambda (boton event)
-                               ((send txtNombre set-value "")
+                               (send txtNombre set-value "")
                                 (send txtClave set-value "")
                                 (send txtTelefono set-value "")
                                 (send txtPaginaWeb set-value "")
@@ -282,7 +292,7 @@
                                     (send frame show #t)
                                     (send opciones show #t)
                                     )
-                                )
+                                
                                )]
              )
   )
@@ -423,6 +433,7 @@
      (set! vNumPlatos (- vNumPlatos decremento))
      (send unidadesPlato set-value (number->string vNumPlatos))
      (query-exec conexion (string-append "Update publicacion set Pub_UnidadesConsumidas = (Pub_UnidadesConsumidas + " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion)))
+     (query-exec conexion (string-append "Update publicacion set Pub_UnidadesOfertadas = (Pub_UnidadesOfertadas - " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion))) 
   )
 
 (new message% [parent publicaciones]                           
@@ -463,9 +474,110 @@
 ;---------------------------------------------FIN INTERFAZ PUBLICACIONES-------------------
 
 ;---------------------------------------------INICIO INTERFAZ INFORMES---------------------
+(define informes (new frame%
+                   [label "SHARING FOOD"]
+                   [width 400][height 600]                   
+                   [x 500][y 100])
+  )
+(new message% [parent informes] ;para dar espacio
+     [min-height 30]
+     [label ""]
+     )
+(new message% [parent informes]     
+     [min-height 30]
+     [label "INFORMES"]
+     )
+(define platoMasVendido (new message% [parent informes]                           
+     [min-height 75]
+     [label "                                                                                  "])
+  )
+(new message% [parent informes] ;para dar espacio
+     [min-height 30]
+     [label ""]
+     )
+(define nombrePlato2 (new text-field% [parent informes]  
+     [label "           PLATO:                     "]
+     [enabled #f])     
+  )
+(define unidadesvendidas (new text-field% [parent informes]
+     [label "          UNIDADES VENDIDAS:          "]     
+     [enabled #f])
+  )
+(define costoProduccion (new text-field% [parent informes]
+     [label "          COSTO TOTAL DE PRODUCCION   "]     
+     [enabled #f])
+  )
+(define totalventas (new text-field% [parent informes]
+     [label "          TOTAL DE VENTAS CONCRETADAS:"]     
+     [enabled #f])
+  )
+(define recomendaciones (new message% [parent informes]                           
+     [min-height 75]
+     [label "                                                                                  "])
+  )
+(define recomendaciones2 (new message% [parent informes]                           
+     [min-height 75]
+     [label "                                                                                  "])
+  )
 
+(new message% [parent informes] ;para dar espacio
+     [min-height 30]
+     [label ""]
+     )
+(define botonAnteriorInforme (new button%
+                   [label "< ANTERIOR"]                           
+                   [min-width 100]
+                   [parent informes]
+                   [callback (lambda (boton event)
+                              (cargarOtrosDatosInformes "<" "MAX")
+                              )]                             
+             )
+  )
+(define botonSiguienteInforme (new button%
+                   [label "SIGUIENTE >"]                           
+                   [min-width 100]
+                   [parent informes]             
+                   [callback (lambda (boton event)
+                              (cargarOtrosDatosInformes ">" "MIN")
+                              )]                             
+             )
+  )
+(new message% [parent informes] ;para dar espacio
+     [min-height 30]
+     [label ""]
+     )
 
+(define botonRegresarDeInformes (new button%
+                   [label " REGRESAR "]                           
+                   [min-width 100]
+                   [parent informes]
+                   [callback (lambda (boton event)
+                               (send opciones show #t)
+                               (send informes show #f) 
+                               )]                             
+             )
+  )
 
+;datos para informes
+(define (cargarDatosInformes)  
+  (cond
+    ((= vIdPublicacion -1) (write "no hay informes para mostrar"))
+    (else (send nombrePlato2 set-value (query-value conexion (string-append "SELECT pub_Plato FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))   
+       (set! vNumPlatos (query-value conexion (string-append "SELECT pub_UnidadesOfertadas FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
+       (set! vNumPlatosVen (query-value conexion (string-append "SELECT pub_UnidadesConsumidas FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
+       (send unidadesvendidas set-value (number->string vNumPlatosVen))
+       (set! vCostoP (* (+ vNumPlatos vNumPlatosVen) (query-value conexion (string-append "SELECT pub_PrecioProduccion FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion)))))
+       (send costoProduccion set-value (number->string vCostoP))
+       (set! vTotalV (* (query-value conexion (string-append "SELECT pub_PrecioOferta FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))) vNumPlatosVen))
+       (send totalventas set-value (number->string vTotalV))
+       (recomendacion vCostoP vTotalV)
+    )
+))
+(define (recomendacion costoP totalV)
+  (cond
+    ((> costoP totalV) (send recomendaciones set-label (string-append "La empresa tiene una perdida de: " (number->string (- costoP totalV)))))
+    ((> totalV costoP) (send recomendaciones set-label (string-append "La empresa tiene una GANANCIA de: " (number->string (- totalV costoP)))))
+))
 ;---------------------------------------------FIN INTERFAZ INFORMES------------------------
 
 
@@ -492,7 +604,7 @@
        (write "Registro Exitoso")
        )
   )
-
+;para cargar la informacion de las publicaciones de cada empresa____________________________________________________________________________
 (define (cargarDatosPublicacion)  
   (cond
     ((= vIdPublicacion -1) (write "no hay publicaciones para mostrar"))
@@ -509,6 +621,14 @@
   (cond
     ((= vAuxiliar -1) (write "No e pueden mostrar mas publicaciones"))
     (else (set! vIdPublicacion vAuxiliar) (cargarDatosPublicacion))
+   )
+)
+;para cargar la informacion de los informes_________________________________________________________________________________________________
+(define (cargarOtrosDatosInformes operando rango)
+  (set! vAuxiliar (query-value conexion (string-append "SELECT IFNULL(" rango "(pub_Id),-1) FROM Publicacion WHERE pub_Id " operando " " (number->string vIdPublicacion)  " AND Emp_Id = " (number->string vId))))
+  (cond
+    ((= vAuxiliar -1) (write "No e pueden mostrar mas publicaciones"))
+    (else (set! vIdPublicacion vAuxiliar) (cargarDatosInformes))
    )
 )
 ;---------------------------------------------FIN GESTION BASE DE DATOS----------------------------
