@@ -432,8 +432,7 @@
 (define (decrementarValorPlatos decremento)
      (set! vNumPlatos (- vNumPlatos decremento))
      (send unidadesPlato set-value (number->string vNumPlatos))
-     (query-exec conexion (string-append "Update publicacion set Pub_UnidadesConsumidas = (Pub_UnidadesConsumidas + " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion)))
-     (query-exec conexion (string-append "Update publicacion set Pub_UnidadesOfertadas = (Pub_UnidadesOfertadas - " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion))) 
+     (query-exec conexion (string-append "Update publicacion set Pub_UnidadesConsumidas = (Pub_UnidadesConsumidas + " (number->string decremento) ") where pub_Id = " (number->string vIdPublicacion)))     
   )
 
 (new message% [parent publicaciones]                           
@@ -487,8 +486,16 @@
      [min-height 30]
      [label "INFORMES"]
      )
+(new message% [parent informes] ;para dar espacio
+     [min-height 30]
+     [label ""]
+     )
 (define platoMasVendido (new message% [parent informes]                           
-     [min-height 75]
+     [min-height 30]
+     [label "                                                                                  "])
+  )
+(define platoMenosVendido (new message% [parent informes]                           
+     [min-height 30]
      [label "                                                                                  "])
   )
 (new message% [parent informes] ;para dar espacio
@@ -512,11 +519,11 @@
      [enabled #f])
   )
 (define recomendaciones (new message% [parent informes]                           
-     [min-height 75]
+     [min-height 30]
      [label "                                                                                  "])
   )
 (define recomendaciones2 (new message% [parent informes]                           
-     [min-height 75]
+     [min-height 30]
      [label "                                                                                  "])
   )
 
@@ -571,6 +578,9 @@
        (set! vTotalV (* (query-value conexion (string-append "SELECT pub_PrecioOferta FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))) vNumPlatosVen))
        (send totalventas set-value (number->string vTotalV))
        (recomendacion vCostoP vTotalV)
+       (send recomendaciones2 set-label (string-append "El porcentaje de unidades vendidas es: " (number->string (query-value conexion (string-append "SELECT IFNULL(((Pub_UnidadesConsumidas * 100)/Pub_UnidadesOfertadas), 0) FROM Publicacion WHERE Emp_Id ="(number->string vId) " AND Pub_Id = " (number->string vIdPublicacion)))) "%"))
+       (pubMasVendida)
+       (pubMenosVendida)
     )
 ))
 (define (recomendacion costoP totalV)
@@ -578,6 +588,20 @@
     ((> costoP totalV) (send recomendaciones set-label (string-append "La empresa tiene una perdida de: " (number->string (- costoP totalV)))))
     ((> totalV costoP) (send recomendaciones set-label (string-append "La empresa tiene una GANANCIA de: " (number->string (- totalV costoP)))))
 ))
+(define (pubMasVendida)
+(set! max (query-value conexion (string-append "SELECT IFNULL(pub_id, -1) FROM Publicacion WHERE Emp_Id = "(number->string vId)  " ORDER BY Pub_UnidadesConsumidas DESC LIMIT 1")))
+(cond
+  ((> max 0) (send platoMasVendido set-label (string-append "El plato mas vendido es: " (query-value conexion (string-append "SELECT pub_plato FROM Publicacion WHERE Pub_Id = "(number->string max))))))
+  (else (send platoMasVendido set-value ("no hay publicaciones")))
+ )
+)
+(define (pubMenosVendida)
+(set! max (query-value conexion (string-append "SELECT IFNULL(pub_id, -1) FROM Publicacion WHERE Emp_Id = "(number->string vId)  " ORDER BY Pub_UnidadesConsumidas ASC LIMIT 1")))
+(cond
+  ((> max 0) (send platoMenosVendido set-label (string-append "El plato menos vendido es: " (query-value conexion (string-append "SELECT pub_plato FROM Publicacion WHERE Pub_Id = "(number->string max))))))
+  (else (send platoMenosVendido set-value ("no hay publicaciones")))
+ )
+)
 ;---------------------------------------------FIN INTERFAZ INFORMES------------------------
 
 
@@ -611,7 +635,7 @@
     (else (send nombrePlato set-value (query-value conexion (string-append "SELECT pub_Plato FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
        (send precioPlato set-value (number->string (query-value conexion (string-append "SELECT pub_PrecioOferta FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion)))))
        (send precioPlatoProd set-value (number->string (query-value conexion (string-append "SELECT pub_PrecioProduccion FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion)))))
-       (set! vNumPlatos (query-value conexion (string-append "SELECT pub_UnidadesOfertadas FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
+       (set! vNumPlatos (query-value conexion (string-append "SELECT pub_UnidadesOfertadas - pub_UnidadesConsumidas FROM Publicacion WHERE pub_Id = " (number->string vIdPublicacion))))
        (send unidadesPlato set-value (number->string vNumPlatos)))                           
   )
 )
@@ -619,7 +643,7 @@
 (define (cargarOtraPublicacion operando rango)
   (set! vAuxiliar (query-value conexion (string-append "SELECT IFNULL(" rango "(pub_Id),-1) FROM Publicacion WHERE pub_Id " operando " " (number->string vIdPublicacion)  " AND Emp_Id = " (number->string vId) " AND pub_UnidadesConsumidas < pub_UnidadesOfertadas")))
   (cond
-    ((= vAuxiliar -1) (write "No e pueden mostrar mas publicaciones"))
+    ((= vAuxiliar -1) (write "No se pueden mostrar mas publicaciones"))
     (else (set! vIdPublicacion vAuxiliar) (cargarDatosPublicacion))
    )
 )
